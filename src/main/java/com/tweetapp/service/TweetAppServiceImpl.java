@@ -3,6 +3,7 @@ package com.tweetapp.service;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,8 +33,8 @@ public class TweetAppServiceImpl implements TweetAppService{
 	@Autowired
 	private commentRepository commentRepo;
 	
-	//@Autowired
-	//private ModelMappermode
+	@Autowired
+	private ModelMapper mapper;
 	
 	@Override
 	public UserDetail SaveUser(UserDetail userDetail) {
@@ -70,12 +71,12 @@ public class TweetAppServiceImpl implements TweetAppService{
 		return null;
 	}
 	@Override
-	public List<UserDetail> getAllUserByName(String name) {
-        List<UserDetail> list=new ArrayList<>();
+	public List<String> getAllUserByName(String name) {
+        List<String> list=new ArrayList<>();
         List<UserDetail> userDetails=getAllUser();
         for(UserDetail userDetail:userDetails) {
-        	if(userDetail.getFirstName().contains(name) || userDetail.getLastName().contains(name)) {
-        		list.add(userDetail);
+        	if(userDetail.getFirstName().toLowerCase().contains(name.toLowerCase()) || userDetail.getLastName().toLowerCase().contains(name.toLowerCase())) {
+        		list.add(userDetail.getFirstName()+" "+userDetail.getLastName());
         	}
         }
 		return list;
@@ -115,10 +116,10 @@ public class TweetAppServiceImpl implements TweetAppService{
 			tweet.setComment(com);
 			log.info(" userid and name added sccessfully in tweet ");
 			Tweet tw=tweetrepo.save(tweet);
-			TweetInfo info=new TweetInfo(tw.getTweetId(),tw.getTweet(),tw.getComment(),tw.getDateAndTimeOfTweet(),tw.getLike());
+			TweetInfo info=mapper.map(tw, TweetInfo.class);  //mapping from one class object to other class object 
 			userDetail.getTweet().add(info);
            tweetApp.save(userDetail);
-           log.info("Tweet save sccessfully");
+           log.info("Tweet posted sccessfully");
 			return tw;
 	}
 	public Tweet deleteTweetByTweetIdAndUserId(String userId,String tweetId) {
@@ -147,33 +148,65 @@ public class TweetAppServiceImpl implements TweetAppService{
 		}
 		return twe;
 	}
+	public Tweet updateTweetByTweetIdAndUserId(String userId,String tweetId,Tweet post) {
+		UserDetail userDetail= getUserById(userId);
+		List<TweetInfo> tweetInf=getTweetByUserName(userId);
+		TweetInfo info=new TweetInfo();
+		for(TweetInfo tweetInfo:tweetInf) {
+			if(tweetId.equals(tweetInfo.getTweetId())) {
+				info=tweetInfo;
+				log.info("We got the tweet");
+				break;
+			}
+		}
+		if(info!=null) {
+		  info.setTweet(post.getTweet());
+		  log.info("We got the tweet");
+		  userDetail.setTweet(tweetInf);
+		  tweetApp.save(userDetail);
+		}
+		List<Tweet> list=getAllTweet();
+		Tweet twe=new Tweet();
+		for(Tweet tw:list) {
+			if(tw.getTweetId().equals(tweetId)) {
+				twe=tw;
+				log.info("We got the tweet");
+				tw.setTweet(post.getTweet());
+			    tweetrepo.save(tw);
+				break;
+			}
+		}
+		return twe;
+	}
+	
+	
 	public Tweet getTweetById(String tweetid) {
 		List<Tweet> twe=getAllTweet();
+		log.info("Got All Tweet");
 		for(Tweet tweet:twe) {
 			if(tweet.getTweetId().equals(tweetid)) {
+				log.info("Got tweet by tweetId");
 				return tweet;
 			}
 		}
+		log.info("No Tweet found with this tweetId");
 		return null;
 	}
 	
 	public Tweet giveLikeToPost(String userid,String tweetid) {
 		UserDetail userDetail=getUserById(userid);
 		Tweet tweet=getTweetById(tweetid);
-		log.info("Found the user Info "+userDetail);
-		log.info("Found the Tweet Info "+tweet);
 		if(userDetail==null || tweet==null){
+			log.info("User or Tweet not found");
 			return null;
 		}
-		
 		for(UserDetailDto dto:tweet.getLike()) {
 			if(dto.getUserId().equals(userDetail.getUserId())) {
 				tweet.getLike().remove(dto);
 				return null;
 			}
 		}
-		UserDetailDto dto=new UserDetailDto(userDetail.getUserId(),userDetail.getFirstName(),userDetail.getLastName(),userDetail.getMobileNumber(),userDetail.getEmail(),userDetail.getDateOfBirth());
-		
+		UserDetailDto dto=mapper.map(userDetail,UserDetailDto.class);	//mapping from userDetails class to UserDetailsDto	
 		tweet.getLike().add(dto);
 		tweetrepo.save(tweet);
 		log.info("Found the Tweet Info Updated");
@@ -195,7 +228,7 @@ public class TweetAppServiceImpl implements TweetAppService{
 		if(user==null || tweet==null) {
 			return new Comment();
 		}
-		UserDetailDto dto=new UserDetailDto(user.getUserId(),user.getFirstName(),user.getLastName(),user.getMobileNumber(),user.getEmail(),user.getDateOfBirth());
+		UserDetailDto dto=mapper.map(user,UserDetailDto.class); //mapping from userDetails class to UserDetailsDto
 		log.info("Comment method started");
 		Comment comm =new Comment();
 		comm.setComment(comment.getComment());
@@ -204,7 +237,7 @@ public class TweetAppServiceImpl implements TweetAppService{
 		log.info(comment.getComment());
 		tweet.getComment().add(comm);
 		Tweet twee=tweetrepo.save(tweet);
-		TweetInfo info=new TweetInfo(twee.getTweetId(),twee.getTweet(),twee.getComment(),twee.getDateAndTimeOfTweet(),twee.getLike());
+		TweetInfo info=mapper.map(twee,TweetInfo.class); //mapping from Tweet to TweetInfo
 		user.getTweet().add(info);
 		tweetApp.save(user);
 		log.info("Data saved in tweet");
