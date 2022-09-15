@@ -39,7 +39,7 @@ public class TweetAppController {
 	@PostMapping("/register")
 	public ResponseEntity<?> resgisterUser(@RequestBody UserDetail userDetail) {
 		log.info("User registration Started");
-		producer.publishToTopic("User Registration Started Now");
+		//producer.publishToTopic("User Registration Started Now");
 		UserDetail use=null;
 		try {
 		 use=service.SaveUser(userDetail);
@@ -50,7 +50,7 @@ public class TweetAppController {
 		}catch(Exception e) {
 			e.getStackTrace();
 			log.error("User Registration failed");
-			 producer.publishToTopic("User Registration failed" +e.getMessage());
+		 producer.publishToTopic("User Registration failed" +e.getMessage());
 			return new ResponseEntity<>(new UserDetail(),HttpStatus.BAD_REQUEST);
 		}
 		log.error("User Registration Successfully");
@@ -74,7 +74,7 @@ public class TweetAppController {
 	}
 
 	@GetMapping("/user/search/{name}")
-	public List<UserDetail> getUserByName(@PathVariable("name") String name) {
+	public List<String> getUserByName(@PathVariable("name") String name) {
 		return service.getAllUserByName(name);
 	}
 	
@@ -139,4 +139,12 @@ public class TweetAppController {
 		}
 		return new ResponseEntity<>(comm,HttpStatus.OK);
 	}
+	@PutMapping("/{userid}/update/{tweetid}")
+	public ResponseEntity<?> updateTweet(@PathVariable("userid") String userid,@PathVariable("tweetid") String tweetid,@RequestBody Tweet post){
+		Tweet tweet=service.updateTweetByTweetIdAndUserId(userid, tweetid, post);
+		if(tweet!=null) {
+			return new ResponseEntity<>(tweet,HttpStatus.OK);
+		}
+		return new ResponseEntity<>("No Tweet Found for delete",HttpStatus.BAD_REQUEST);
+	}	
 }
